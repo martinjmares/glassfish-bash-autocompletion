@@ -1,9 +1,9 @@
 Bash custom autocompletion for GlassFish 4
 ==================================
 
-## Note from JavaOne session
-
-Corect link to GlassFish desktop wallpapers is (http://flickr.com/gp/martinjacekmares/tP4HW7)
+> ___Note from JavaOne session:___  
+Corect link to GlassFish desktop wallpapers is (http://flickr.com/gp/martinjacekmares/tP4HW7)  
+I olso publicated example of the admin command which use SSE to (https://github.com/martinjmares/gf4-command-with-sse-example)
 
 ## About
 If you are using GlassFish 4 CLI (asadmin utility) on bash then you can do TAB and TAB-TAB for autocomplete your command names, parameters and sometimes also values.
