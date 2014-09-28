@@ -1,27 +1,14 @@
-# all copies or substantial portions of the Software.
-# 
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-# 
+#!/bin/sh
 
-#
-# *******************************************************************
-# * Bash autocompletion for GlassFish 4 asadmin utility             *
-# * ===================================================             *
-# *                                                                 *
-# * Version: 1.0-Beta                                               *
-# * For: asadmin utility of GlassFish 4                             *
-# *                                                                 *
-# * INSTALL:                                                        *
-# * Source this file into your TTY. Then use <TAB> and <TAB><TAB>   *
-# * while compose your asadmin command line string.                 *
-# *******************************************************************
-#
+# ----------------------------------------------------------------------------
+# "THE BEER-WARE LICENSE" (Revision 42):
+# <martin.jacek.mares@gmail.com> wrote this file. As long as you retain this
+# notice you can do whatever you want with this stuff. If we meet some day,
+# and you think this stuff is worth it, you can buy me a beer in return
+# Martin Mares
+# ----------------------------------------------------------------------------
+
+
 
 _nclnac_containsElement () {
   local e
@@ -50,97 +37,6 @@ _nclnac_addNonexistMulti () {
     done
 }
 
-_nclnac_extractBasicCallParams () {
-    local cmpw addarg rslt
-    rslt="${COMP_WORDS[0]}"
-    addarg=FALSE
-    for cmpw in "${COMP_WORDS[@]:1}" ; do
-        if $addarg ; then
-            rslt="$rslt $cmpw"
-            addarg=FALSE
-            continue
-        fi
-        case "$cmpw" in
-            --host|-H|--port|-p|--user|-u|--passwordfile|-W)
-                rslt="$rslt $cmpw"
-                addarg=TRUE
-                ;;
-            --host=*|-H=*|--port=*|-p=*|--user=*|-u=*|--passwordfile=*|-W=*)
-                rslt="$rslt $cmpw"
-                ;;
-        esac
-    done
-    echo "$rslt"
-}
-
-_nclnac_locateTempDir () {
-    local result
-    if [[ -d "$TMPDIR" ]] && [[ -w "$TMPDIR" ]] ; then
-        echo "$TMPDIR"
-        return 0
-    fi
-    if [[ -d "/tmp" ]] && [[ -w "/tmp" ]] ; then
-        echo "/tmp"
-        return 0
-    fi
-    result="`dirname \"$0\"`"
-    if [[ -d "$result" ]] && [[ -w "$result" ]] ; then
-        echo "$result"
-        return 0
-    fi
-    return 1
-}
-
-_nclnac_cliList () {
-    local old_IFS cmdname cmdrslt cachefile elapsed alternatives
-    cmdname="$(_nclnac_extractBasicCallParams) --terse $1 2>/dev/null"
-
-    #search in cache
-    cachefile="$(_nclnac_locateTempDir)/`echo "$cmdname" | xargs -n1 | sort -u | md5`.ascompcache"
-    if [[ -e "$cachefile" ]] ; then
-        let elapsed=`date +%s`-`stat -f %c "$cachefile"`
-        if (( "$elapsed" <= 6 )) ; then #just 6 seconds
-            COMPPOSIB=( ${COMPPOSIB[@]} `cat "$cachefile"` )
-            if [[ ${#COMPPOSIB[@]} == 0 ]] ; then
-                COPPOSIB=( EMPTY LIST )
-            fi
-            touch "$cachefile"
-            return 0;
-        else
-            echo "" > "$cachefile"
-        fi
-    else 
-        echo "" > "$cachefile"
-    fi
-    #Call list command
-    old_IFS=$IFS
-    IFS=$'\n'
-    cmdrslt=( $(eval $cmdname) )
-    IFS=$old_IFS
-    #Read values
-    if [[ $? == 0 ]] ; then 
-        if [[ "${cmdrslt[0]}" == Nothing?to* ]] || [[ "${cmdrslt[0]}" ==  No?such?local?command* ]] ; then
-            echo "" > "$cachefile"
-            COPPOSIB=( EMPTY LIST )
-            return 0
-        else
-            alternatives=""
-            for line in "${cmdrslt[@]}" ; do
-                alternatives="$alternatives ${line%% *}"
-            done
-            echo "$alternatives" > "$cachefile"
-            COMPPOSIB=( ${COMPPOSIB[@]} $alternatives )
-            return 0
-        fi
-    else
-        return 1
-    fi
-}
-
-_nclnac_argTarget () {
-    _nclnac_cliList list-clusters
-    _nclnac_cliList list-instances
-}
 
 _nclnac_asadmin () {
     local cur prev comp commandisdefined tempreply
@@ -181,9 +77,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--upload" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -218,31 +111,16 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--description" "--long --verbose -l" "--backupConfig" "--backupdir" "--domaindir" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-domains
-                    fi
                     ;;
                 'change-admin-password')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--domain_name" ]] ; then
-                                _nclnac_cliList list-domains
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--domain_name" "--password" "--newpassword" "--domaindir" 
-                    ;;
-                'change-master-broker')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            break
-                    fi
                     ;;
                 'change-master-password')
                     commandisdefined=true
@@ -260,9 +138,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--retrieve" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -270,24 +145,11 @@ _nclnac_asadmin () {
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" "--retrieve" 
                     ;;
-                'configure-jms-cluster')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--configstoretype --cs" "--messagestoretype --ms" "--clustertype --ct" "--dbvendor --db" "--dbuser --user" "--jmsDbPassword" "--dburl --url" "--property" 
-                    ;;
                 'configure-lb-weight')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--cluster" ]] ; then
-                                _nclnac_cliList list-clusters
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -298,9 +160,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -332,9 +191,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--enabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -348,9 +204,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--enabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -363,9 +216,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -376,9 +226,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -400,9 +247,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--isconnectvalidatereq" "--isConnectionValidationRequired" "--failconnection" "--failAllConnections" "--leakreclaim" "--connectionLeakReclaim" "--lazyconnectionenlistment" "--lazyConnectionEnlistment" "--lazyconnectionassociation" "--lazyConnectionAssociation" "--associatewiththread" "--associateWithThread" "--matchconnections" "--matchConnections" "--ping" "--pooling" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -416,9 +260,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--enabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -431,9 +272,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -449,31 +287,12 @@ _nclnac_asadmin () {
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--raname" "--principalsmap" "--groupsmap" "--description" 
                     ;;
-                'create-context-service')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                        if ! _nclnac_containsElement "$prev" "--enabled" "--contextinfoenabled" "--contextInfoEnabled" ; then #prev is non boolean argument - user must porvide value.
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                        fi
-                        COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--enabled" "--contextinfoenabled --contextInfoEnabled" "--contextinfo --contextInfo" "--description" "--property" "--target" 
-                    ;;
                 'create-custom-resource')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--enabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -496,9 +315,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -510,9 +326,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--dns-lookup-enabled" "--dnsLookupEnabled" "--xpowered" "--xpoweredBy" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -529,10 +342,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--timeout" "--interval" "--url" "--config" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'create-http-lb')
                     commandisdefined=true
@@ -540,9 +349,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--httpsrouting" "--monitor" "--routecookie" "--autoapplyenabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -555,9 +361,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -572,10 +375,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--config" "--lbname" "--lbpolicy" "--lbpolicymodule" "--healthcheckerurl" "--healthcheckerinterval" "--healthcheckertimeout" "--lbenableallapplications" "--lbenableallinstances" "--lbweight" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'create-http-listener')
                     commandisdefined=true
@@ -583,9 +382,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--xpowered" "--securityenabled" "--enabled" "--secure" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -598,9 +394,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -612,9 +405,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--enabled" "--securityenabled" "--security-enabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -628,9 +418,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--lbenabled" "--checkports" "--terse" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--cluster" ]] ; then
-                                _nclnac_cliList list-clusters
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -643,9 +430,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -657,9 +441,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--enabled" "--debug" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -673,9 +454,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--isIsolationGuaranteed" "--isIsolationLevelGuaranteed" "--isConnectValidateReq" "--isConnectionValidationRequired" "--failConnection" "--failAllConnections" "--allowNonComponentCallers" "--nonTransactionalConnections" "--leakReclaim" "--connectionLeakReclaim" "--statementLeakReclaim" "--statementLeakReclaim" "--lazyConnectionEnlistment" "--lazyConnectionAssociation" "--associateWithThread" "--matchConnections" "--ping" "--pooling" "--wrapJdbcObjects" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -689,9 +467,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--enabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -699,63 +474,12 @@ _nclnac_asadmin () {
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--connectionpoolid --poolName" "--enabled" "--description" "--property" "--target" 
                     ;;
-                'create-jmsdest')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                        if ! _nclnac_containsElement "$prev" "--force" ; then #prev is non boolean argument - user must porvide value.
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                        fi
-                        COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--destType -T" "--property" "--force" "--target" 
-                    ;;
-                'create-jms-host')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                        if ! _nclnac_containsElement "$prev" "--force" ; then #prev is non boolean argument - user must porvide value.
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                        fi
-                        COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--mqHost --host" "--mqPort --port" "--mqUser --adminUserName" "--mqPassword --adminPassword" "--property" "--target" "--force" 
-                    ;;
-                'create-jms-resource')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                        if ! _nclnac_containsElement "$prev" "--enabled" "--force" ; then #prev is non boolean argument - user must porvide value.
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                        fi
-                        COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--resType" "--enabled" "--property" "--target" "--description" "--force" 
-                    ;;
                 'create-jndi-resource')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--enabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -769,9 +493,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--profiler" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -785,9 +506,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--failurefatal" "--enabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -801,9 +519,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--lbenabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--cluster" ]] ; then
-                                _nclnac_cliList list-clusters
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -811,63 +526,12 @@ _nclnac_asadmin () {
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--config" "--cluster" "--lbenabled" "--systemproperties" "--portbase" "--checkports" "--savemasterpassword" "--usemasterpassword" "--nodedir --agentdir" "--node --nodeagent" 
                     ;;
-                'create-managed-executor-service')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                        if ! _nclnac_containsElement "$prev" "--enabled" "--contextinfoenabled" "--contextInfoEnabled" "--longrunningtasks" "--longRunningTasks" ; then #prev is non boolean argument - user must porvide value.
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                        fi
-                        COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--maximumpoolsize --maximumPoolSize" "--taskqueuecapacity --taskQueueCapacity" "--enabled" "--contextinfoenabled --contextInfoEnabled" "--contextinfo --contextInfo" "--threadpriority --threadPriority" "--longrunningtasks --longRunningTasks" "--hungafterseconds --hungAfterSeconds" "--corepoolsize --corePoolSize" "--keepaliveseconds --keepAliveSeconds" "--threadlifetimeseconds --threadLifetimeSeconds" "--description" "--property" "--target" 
-                    ;;
-                'create-managed-scheduled-executor-service')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                        if ! _nclnac_containsElement "$prev" "--enabled" "--contextinfoenabled" "--contextInfoEnabled" "--longrunningtasks" "--longRunningTasks" ; then #prev is non boolean argument - user must porvide value.
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                        fi
-                        COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--enabled" "--contextinfoenabled --contextInfoEnabled" "--contextinfo --contextInfo" "--threadpriority --threadPriority" "--longrunningtasks --longRunningTasks" "--hungafterseconds --hungAfterSeconds" "--corepoolsize --corePoolSize" "--keepaliveseconds --keepAliveSeconds" "--threadlifetimeseconds --threadLifetimeSeconds" "--description" "--property" "--target" 
-                    ;;
-                'create-managed-thread-factory')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                        if ! _nclnac_containsElement "$prev" "--enabled" "--contextinfoenabled" "--contextInfoEnabled" ; then #prev is non boolean argument - user must porvide value.
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                        fi
-                        COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--enabled" "--contextinfoenabled --contextInfoEnabled" "--contextinfo --contextInfo" "--threadpriority --threadPriority" "--description" "--property" "--target" 
-                    ;;
                 'create-message-security-provider')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--isdefaultprovider" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -881,9 +545,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--dryRun" "--all" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -897,9 +558,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--enabled" "--jkenabled" "--jkEnabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -959,9 +617,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--enabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -975,9 +630,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--securityenabled" "--securityEnabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -990,9 +642,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1003,9 +652,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1016,9 +662,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1030,9 +673,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--enabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -1056,9 +696,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--ssl2Enabled" "--ssl3Enabled" "--tlsEnabled" "--tlsRollbackEnabled" "--clientAuthEnabled" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -1071,9 +708,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1084,9 +718,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1098,9 +729,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--displayconfiguration" "--displayConfiguration" "--enablesnoop" "--enableSnoop" "--tcpnodelay" "--tcpNoDelay" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -1113,9 +741,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1126,17 +751,10 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-admin-objects
-                    fi
                     ;;
                 'delete-application-ref')
                     commandisdefined=true
@@ -1144,53 +762,32 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--cascade" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" "--cascade" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-application-refs
-                    fi
                     ;;
                 'delete-audit-module')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-audit-modules
-                    fi
                     ;;
                 'delete-auth-realm')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-auth-realms
-                    fi
                     ;;
                 'delete-cluster')
                     commandisdefined=true
@@ -1201,10 +798,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--autohadboverride" "--nodeagent" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-clusters
-                    fi
                     ;;
                 'delete-config')
                     commandisdefined=true
@@ -1213,10 +806,6 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-configs
-                    fi
                     ;;
                 'delete-connector-connection-pool')
                     commandisdefined=true
@@ -1224,53 +813,32 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--cascade" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" "--cascade" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-connector-connection-pools
-                    fi
                     ;;
                 'delete-connector-resource')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-connector-resources
-                    fi
                     ;;
                 'delete-connector-security-map')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--poolname" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-connector-security-maps
-                    fi
                     ;;
                 'delete-connector-work-security-map')
                     commandisdefined=true
@@ -1281,44 +849,16 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--raname" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-connector-work-security-maps
-                    fi
-                    ;;
-                'delete-context-service')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-context-services
-                    fi
                     ;;
                 'delete-custom-resource')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-custom-resources
-                    fi
                     ;;
                 'delete-domain')
                     commandisdefined=true
@@ -1329,36 +869,22 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--domaindir" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-domains
-                    fi
                     ;;
                 'delete-file-user')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--authrealmname" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-file-users
-                    fi
                     ;;
                 'delete-http')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1373,10 +899,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--config" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'delete-http-lb')
                     commandisdefined=true
@@ -1385,10 +907,6 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-http-lbs
-                    fi
                     ;;
                 'delete-http-lb-config')
                     commandisdefined=true
@@ -1396,10 +914,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
                             break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-http-lb-configs
                     fi
                     ;;
                 'delete-http-lb-ref')
@@ -1411,36 +925,22 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--config" "--lbname" "--force" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'delete-http-listener')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--secure" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-http-listeners
-                    fi
                     ;;
                 'delete-http-redirect')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1451,17 +951,10 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-iiop-listeners
-                    fi
                     ;;
                 'delete-instance')
                     commandisdefined=true
@@ -1475,44 +968,26 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--terse" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-instances
-                    fi
                     ;;
                 'delete-jacc-provider')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-jacc-providers
-                    fi
                     ;;
                 'delete-javamail-resource')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-javamail-resources
-                    fi
                     ;;
                 'delete-jdbc-connection-pool')
                     commandisdefined=true
@@ -1520,104 +995,32 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--cascade" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--cascade" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-jdbc-connection-pools
-                    fi
                     ;;
                 'delete-jdbc-resource')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-jdbc-resources
-                    fi
-                    ;;
-                'delete-jmsdest')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--destType -T" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-jmsdest
-                    fi
-                    ;;
-                'delete-jms-host')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-jms-hosts
-                    fi
-                    ;;
-                'delete-jms-resource')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-jms-resources
-                    fi
                     ;;
                 'delete-jndi-resource')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-jndi-resources
-                    fi
                     ;;
                 'delete-jvm-options')
                     commandisdefined=true
@@ -1625,36 +1028,22 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--profiler" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" "--profiler" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-jvm-options
-                    fi
                     ;;
                 'delete-lifecycle-module')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-lifecycle-modules
-                    fi
                     ;;
                 'delete-local-instance')
                     commandisdefined=true
@@ -1671,60 +1060,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-log-levels
-                    fi
-                    ;;
-                'delete-managed-executor-service')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-managed-executor-services
-                    fi
-                    ;;
-                'delete-managed-scheduled-executor-service')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-managed-scheduled-executor-services
-                    fi
-                    ;;
-                'delete-managed-thread-factory')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1735,26 +1070,16 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--layer" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-message-security-providers
-                    fi
                     ;;
                 'delete-module-config')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1765,17 +1090,10 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-network-listeners
-                    fi
                     ;;
                 'delete-node-config')
                     commandisdefined=true
@@ -1783,10 +1101,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
                             break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-nodes-config
                     fi
                     ;;
                 'delete-node-dcom')
@@ -1801,10 +1115,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--uninstall" "--force" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-nodes-dcom
-                    fi
                     ;;
                 'delete-node-ssh')
                     commandisdefined=true
@@ -1818,10 +1128,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--uninstall" "--force" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-nodes-ssh
-                    fi
                     ;;
                 'delete-password-alias')
                     commandisdefined=true
@@ -1836,9 +1142,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1849,94 +1152,56 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-protocols
-                    fi
                     ;;
                 'delete-protocol-filter')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--protocol" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-protocol-filters
-                    fi
                     ;;
                 'delete-protocol-finder')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--protocol" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-protocol-finders
-                    fi
                     ;;
                 'delete-resource-adapter-config')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-resource-adapter-configs
-                    fi
                     ;;
                 'delete-resource-ref')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-resource-refs
-                    fi
                     ;;
                 'delete-ssl')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1947,9 +1212,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -1960,51 +1222,30 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-threadpools
-                    fi
                     ;;
                 'delete-transport')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-transports
-                    fi
                     ;;
                 'delete-virtual-server')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-virtual-servers
-                    fi
                     ;;
                 'deploy')
                     commandisdefined=true
@@ -2012,9 +1253,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--force" "--precompilejsp" "--verify" "--createtables" "--dropandcreatetables" "--uniquetablenames" "--enabled" "--generatermistubs" "--availabilityenabled" "--asyncreplication" "--keepreposdir" "--keepfailedstubs" "--isredeploy" "--logReportedErrors" "--keepstate" "--upload" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -2028,9 +1266,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--force" "--precompilejsp" "--verify" "--createtables" "--dropandcreatetables" "--uniquetablenames" "--enabled" "--generatermistubs" "--availabilityenabled" "--asyncreplication" "--keepreposdir" "--keepfailedstubs" "--isredeploy" "--logReportedErrors" "--keepstate" "--upload" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -2044,19 +1279,12 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--isundeploy" "--keepreposdir" "--isredeploy" "--droptables" "--cascade" "--keepstate" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--isundeploy" "--target" "--keepreposdir" "--isredeploy" "--droptables" "--cascade" "--properties" "--keepstate" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-components
-                    fi
                     ;;
                 'disable-http-lb-application')
                     commandisdefined=true
@@ -2067,10 +1295,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--name" "--timeout" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'disable-http-lb-server')
                     commandisdefined=true
@@ -2081,19 +1305,12 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--timeout" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'disable-monitoring')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -2114,10 +1331,6 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-secure-admin-internal-users
-                    fi
                     ;;
                 'disable-secure-admin-principal')
                     commandisdefined=true
@@ -2131,27 +1344,16 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--alias" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-secure-admin-principals
-                    fi
                     ;;
                 'enable')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-components
-                    fi
                     ;;
                 'enable-http-lb-application')
                     commandisdefined=true
@@ -2162,10 +1364,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--name" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'enable-http-lb-server')
                     commandisdefined=true
@@ -2174,10 +1372,6 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'enable-monitoring')
                     commandisdefined=true
@@ -2185,9 +1379,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--mbean" "--dtrace" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -2255,9 +1446,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--retrieve" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -2275,27 +1463,11 @@ _nclnac_asadmin () {
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--appname" "--modulename" 
                     ;;
-                'flush-jmsdest')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--destType -T" "--target" 
-                    ;;
                 'freeze-transaction-service')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -2319,9 +1491,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -2346,9 +1515,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--all" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -2422,19 +1588,6 @@ _nclnac_asadmin () {
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--sshuser" "--sshport" "--sshkeyfile" "--archive" "--installdir" "--create" "--save" "--force" 
                     ;;
-                'jms-ping')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--target" 
-                    ;;
                 'list')
                     commandisdefined=true
                     #prev is argument
@@ -2455,10 +1608,6 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-application-refs')
                     commandisdefined=true
@@ -2472,10 +1621,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--long -l" "--terse -t" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-applications')
                     commandisdefined=true
@@ -2489,10 +1634,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--type" "--long -l" "--terse -t" "--subcomponents" "--resources" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-audit-modules')
                     commandisdefined=true
@@ -2501,10 +1642,6 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-auth-realms')
                     commandisdefined=true
@@ -2512,10 +1649,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
                             break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
                     fi
                     ;;
                 'list-backups')
@@ -2527,74 +1660,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--long --verbose -l" "--backupConfig" "--backupdir" "--domaindir" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-domains
-                    fi
-                    ;;
-                'list-batch-job-executions')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                        if ! _nclnac_containsElement "$prev" "--terse" "-t" "--header" "-h" "--long" "-l" ; then #prev is non boolean argument - user must porvide value.
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                        fi
-                        COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--executionid -x" "--terse -t" "--output -o" "--header -h" "--target" "--long -l" 
-                    ;;
-                'list-batch-jobs')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                        if ! _nclnac_containsElement "$prev" "--terse" "-t" "--header" "-h" "--long" "-l" ; then #prev is non boolean argument - user must porvide value.
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                        fi
-                        COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--terse -t" "--output -o" "--header -h" "--target" "--long -l" 
-                    ;;
-                'list-batch-job-steps')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                        if ! _nclnac_containsElement "$prev" "--terse" "-t" "--header" "-h" "--long" "-l" ; then #prev is non boolean argument - user must porvide value.
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                        fi
-                        COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--terse -t" "--output -o" "--header -h" "--target" "--long -l" 
-                    ;;
-                'list-batch-runtime-configuration')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                        if ! _nclnac_containsElement "$prev" "--terse" "-t" "--header" "-h" ; then #prev is non boolean argument - user must porvide value.
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                        fi
-                        COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--terse -t" "--output -o" "--header -h" "--target" 
                     ;;
                 'list-clusters')
                     commandisdefined=true
@@ -2626,10 +1691,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--type" "--long -l" "--terse -t" "--subcomponents" "--resources" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-configs')
                     commandisdefined=true
@@ -2637,10 +1698,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
                             break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
                     fi
                     ;;
                 'list-connector-connection-pools')
@@ -2650,10 +1707,6 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-connector-resources')
                     commandisdefined=true
@@ -2662,10 +1715,6 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-connector-security-maps')
                     commandisdefined=true
@@ -2673,9 +1722,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--long" "--verbose" "-l" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -2701,26 +1747,11 @@ _nclnac_asadmin () {
                             break
                     fi
                     ;;
-                'list-context-services')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
-                    ;;
                 'list-custom-resources')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -2745,10 +1776,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--authrealmname" "--name" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-file-users')
                     commandisdefined=true
@@ -2759,10 +1786,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--authrealmname" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-http-lb-configs')
                     commandisdefined=true
@@ -2797,10 +1820,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--long -l" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-iiop-listeners')
                     commandisdefined=true
@@ -2808,10 +1827,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
                             break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
                     fi
                     ;;
                 'list-instances')
@@ -2834,19 +1849,12 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-javamail-resources')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -2859,10 +1867,6 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-jdbc-resources')
                     commandisdefined=true
@@ -2870,51 +1874,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
                             break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
-                    ;;
-                'list-jmsdest')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--destType" "--property" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
-                    ;;
-                'list-jms-hosts')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--target" 
-                    ;;
-                'list-jms-resources')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--resType" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
                     fi
                     ;;
                 'list-jndi-entries')
@@ -2926,19 +1885,12 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--context" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-jndi-resources')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -2958,9 +1910,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--profiler" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -2990,10 +1939,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--terse -t" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-log-attributes')
                     commandisdefined=true
@@ -3001,10 +1946,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
                             break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
                     fi
                     ;;
                 'list-loggers')
@@ -3022,46 +1963,6 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
-                    ;;
-                'list-managed-executor-services')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
-                    ;;
-                'list-managed-scheduled-executor-services')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
-                    ;;
-                'list-managed-thread-factories')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-message-security-providers')
                     commandisdefined=true
@@ -3072,10 +1973,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--layer" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-modules')
                     commandisdefined=true
@@ -3091,10 +1988,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
                             break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
                     fi
                     ;;
                 'list-nodes')
@@ -3172,9 +2065,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3185,9 +2075,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3199,10 +2086,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
                             break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
                     fi
                     ;;
                 'list-resource-adapter-configs')
@@ -3217,10 +2100,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--raname" "--long --verbose -l" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-resource-refs')
                     commandisdefined=true
@@ -3228,10 +2107,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
                             break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
                     fi
                     ;;
                 'list-secure-admin-internal-users')
@@ -3280,10 +2155,6 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-system-properties')
                     commandisdefined=true
@@ -3291,10 +2162,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
                             break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
                     fi
                     ;;
                 'list-threadpools')
@@ -3304,10 +2171,6 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-timers')
                     commandisdefined=true
@@ -3315,10 +2178,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
                             break
-                    fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
                     fi
                     ;;
                 'list-transports')
@@ -3328,19 +2187,12 @@ _nclnac_asadmin () {
                             COMPPOSIB=()
                             break
                     fi
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'list-virtual-servers')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3379,9 +2231,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3396,10 +2245,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--interval" "--type" "--filter" "--fileName" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_argTarget
-                    fi
                     ;;
                 'multimode')
                     commandisdefined=true
@@ -3442,9 +2287,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3481,9 +2323,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3495,12 +2334,6 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--force" "--precompilejsp" "--verify" "--createtables" "--dropandcreatetables" "--uniquetablenames" "--enabled" "--generatermistubs" "--availabilityenabled" "--asyncreplication" "--keepreposdir" "--keepfailedstubs" "--isredeploy" "--logReportedErrors" "--keepstate" "--upload" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--name" ]] ; then
-                                _nclnac_cliList list-applications
-                            fi
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
@@ -3530,10 +2363,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--debug" "--force" "--kill" "--domaindir" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-domains
-                    fi
                     ;;
                 'restart-instance')
                     commandisdefined=true
@@ -3544,10 +2373,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--debug" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-instances
-                    fi
                     ;;
                 'restart-local-instance')
                     commandisdefined=true
@@ -3561,10 +2386,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--debug" "--force" "--kill" "--nodedir --agentdir" "--node --nodeagent" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-instances
-                    fi
                     ;;
                 'restore-domain')
                     commandisdefined=true
@@ -3575,19 +2396,12 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--filename" "--force" "--description" "--long --verbose -l" "--backupConfig" "--backupdir" "--domaindir" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-domains
-                    fi
                     ;;
                 'rollback-transaction')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3598,9 +2412,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3614,27 +2425,11 @@ _nclnac_asadmin () {
                             break
                     fi
                     ;;
-                'set-batch-runtime-configuration')
-                    commandisdefined=true
-                    #prev is argument
-                    if [[ $prev == -* ]] ; then
-                            COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
-                            break
-                    fi
-                    #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--target" "--dataSourceLookupName -d" "--executorServiceLookupName -x" 
-                    ;;
                 'set-log-attributes')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3645,9 +2440,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3658,9 +2450,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3717,9 +2506,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3737,10 +2523,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--verbose" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-clusters
-                    fi
                     ;;
                 'start-database')
                     commandisdefined=true
@@ -3760,11 +2542,7 @@ _nclnac_asadmin () {
                             break
                     fi
                     #Add unused single values
-                    _nclnac_addNonexistMulti "$prev" "--verbose -v" "--upgrade" "--watchdog -w" "--debug -d" "--dry-run -n" "--domaindir" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-domains
-                    fi
+                    _nclnac_addNonexistMulti "$prev" "--verbose -v" "--upgrade" "--watchdog -w" "--debug -d" "--dry-run -n" "--drop-interrupted-commands" "--domaindir" 
                     ;;
                 'start-instance')
                     commandisdefined=true
@@ -3778,10 +2556,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--sync" "--debug" "--terse" "--setenv" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-instances
-                    fi
                     ;;
                 'start-local-instance')
                     commandisdefined=true
@@ -3792,10 +2566,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--verbose -v" "--watchdog -w" "--debug -d" "--dry-run -n" "--sync" "--nodedir --agentdir" "--node --nodeagent" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-instances
-                    fi
                     ;;
                 'stop-cluster')
                     commandisdefined=true
@@ -3809,10 +2579,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--kill" "--verbose" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-clusters
-                    fi
                     ;;
                 'stop-database')
                     commandisdefined=true
@@ -3836,10 +2602,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--force" "--kill" "--domaindir" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-domains
-                    fi
                     ;;
                 'stop-instance')
                     commandisdefined=true
@@ -3853,10 +2615,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--force" "--kill" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-instances
-                    fi
                     ;;
                 'stop-local-instance')
                     commandisdefined=true
@@ -3870,10 +2628,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--force" "--kill" "--nodedir --agentdir" "--node --nodeagent" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-instances
-                    fi
                     ;;
                 'undeploy')
                     commandisdefined=true
@@ -3881,28 +2635,18 @@ _nclnac_asadmin () {
                     if [[ $prev == -* ]] ; then
                         if ! _nclnac_containsElement "$prev" "--keepreposdir" "--isredeploy" "--droptables" "--cascade" "--keepstate" ; then #prev is non boolean argument - user must porvide value.
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                         fi
                         COMPPOSIB=( ${COMPPOSIB[@]} "true" "false" )
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--target" "--keepreposdir" "--isredeploy" "--droptables" "--cascade" "--properties" "--keepstate" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-applications
-                    fi
                     ;;
                 'unfreeze-transaction-service')
                     commandisdefined=true
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3971,9 +2715,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -3994,9 +2735,6 @@ _nclnac_asadmin () {
                     #prev is argument
                     if [[ $prev == -* ]] ; then
                             COMPPOSIB=()
-                            if [[ $prev == "--target" ]] ; then
-                                _nclnac_argTarget
-                            fi
                             break
                     fi
                     #Add unused single values
@@ -4093,10 +2831,6 @@ _nclnac_asadmin () {
                     fi
                     #Add unused single values
                     _nclnac_addNonexistMulti "$prev" "--domaindir" 
-                    #Special operator algorithm
-                    if [[ $cur != -* ]] ; then
-                        _nclnac_cliList list-domains
-                    fi
                     ;;
                 'version')
                     commandisdefined=true
@@ -4116,10 +2850,11 @@ _nclnac_asadmin () {
     done
 
     if ! $commandisdefined ; then
+ 
         #General attributes of asadmin
         _nclnac_addNonexistMulti "--host -H" "--port -p" "--user -u" "--passwordfile -W" "--terse -t" "--secure -s" "--echo -e" "--interactive -I"
         #Add all commands 
-        COMPPOSIB=( ${COMPPOSIB[@]} add-library add-resources apply-http-lb-changes attach backup-domain change-admin-password change-master-broker change-master-password collect-log-files configure-jms-cluster configure-lb-weight configure-ldap-for-admin configure-managed-jobs copy-config create-admin-object create-application-ref create-audit-module create-auth-realm create-cluster create-connector-connection-pool create-connector-resource create-connector-security-map create-connector-work-security-map create-context-service create-custom-resource create-domain create-file-user create-http create-http-health-checker create-http-lb create-http-lb-config create-http-lb-ref create-http-listener create-http-redirect create-iiop-listener create-instance create-jacc-provider create-javamail-resource create-jdbc-connection-pool create-jdbc-resource create-jmsdest create-jms-host create-jms-resource create-jndi-resource create-jvm-options create-lifecycle-module create-local-instance create-managed-executor-service create-managed-scheduled-executor-service create-managed-thread-factory create-message-security-provider create-module-config create-network-listener create-node-config create-node-dcom create-node-ssh create-password-alias create-profiler create-protocol create-protocol-filter create-protocol-finder create-resource-adapter-config create-resource-ref create-service create-ssl create-system-properties create-threadpool create-transport create-virtual-server delete-admin-object delete-application-ref delete-audit-module delete-auth-realm delete-cluster delete-config delete-connector-connection-pool delete-connector-resource delete-connector-security-map delete-connector-work-security-map delete-context-service delete-custom-resource delete-domain delete-file-user delete-http delete-http-health-checker delete-http-lb delete-http-lb-config delete-http-lb-ref delete-http-listener delete-http-redirect delete-iiop-listener delete-instance delete-jacc-provider delete-javamail-resource delete-jdbc-connection-pool delete-jdbc-resource delete-jmsdest delete-jms-host delete-jms-resource delete-jndi-resource delete-jvm-options delete-lifecycle-module delete-local-instance delete-log-levels delete-managed-executor-service delete-managed-scheduled-executor-service delete-managed-thread-factory delete-message-security-provider delete-module-config delete-network-listener delete-node-config delete-node-dcom delete-node-ssh delete-password-alias delete-profiler delete-protocol delete-protocol-filter delete-protocol-finder delete-resource-adapter-config delete-resource-ref delete-ssl delete-system-property delete-threadpool delete-transport delete-virtual-server deploy deploydir disable disable-http-lb-application disable-http-lb-server disable-monitoring disable-secure-admin disable-secure-admin-internal-user disable-secure-admin-principal enable enable-http-lb-application enable-http-lb-server enable-monitoring enable-secure-admin enable-secure-admin-internal-user enable-secure-admin-principal export export-http-lb-config export-sync-bundle flush-connection-pool flush-jmsdest freeze-transaction-service generate-domain-schema generate-jvm-report get get-active-module-config get-client-stubs get-health help import-sync-bundle install-node install-node-dcom install-node-ssh jms-ping list list-admin-objects list-application-refs list-applications list-audit-modules list-auth-realms list-backups list-batch-job-executions list-batch-jobs list-batch-job-steps list-batch-runtime-configuration list-clusters list-commands list-components list-configs list-connector-connection-pools list-connector-resources list-connector-security-maps list-connector-work-security-maps list-containers list-context-services list-custom-resources list-domains list-file-groups list-file-users list-http-lb-configs list-http-lbs list-http-listeners list-iiop-listeners list-instances list-jacc-providers list-javamail-resources list-jdbc-connection-pools list-jdbc-resources list-jmsdest list-jms-hosts list-jms-resources list-jndi-entries list-jndi-resources list-jobs list-jvm-options list-libraries list-lifecycle-modules list-log-attributes list-loggers list-log-levels list-managed-executor-services list-managed-scheduled-executor-services list-managed-thread-factories list-message-security-providers list-modules list-network-listeners list-nodes list-nodes-config list-nodes-dcom list-nodes-ssh list-password-aliases list-persistence-types list-protocol-filters list-protocol-finders list-protocols list-resource-adapter-configs list-resource-refs list-secure-admin-internal-users list-secure-admin-principals list-sub-components list-supported-cipher-suites list-system-properties list-threadpools list-timers list-transports list-virtual-servers list-web-context-param list-web-env-entry login migrate-timers monitor multimode osgi osgi-shell ping-connection-pool ping-node-dcom ping-node-ssh recover-transactions redeploy remove-library restart-domain restart-instance restart-local-instance restore-domain rollback-transaction rotate-log set set-batch-runtime-configuration set-log-attributes set-log-file-format set-log-levels setup-local-dcom setup-ssh set-web-context-param set-web-env-entry show-component-status start-cluster start-database start-domain start-instance start-local-instance stop-cluster stop-database stop-domain stop-instance stop-local-instance undeploy unfreeze-transaction-service uninstall-node uninstall-node-dcom uninstall-node-ssh unset unset-web-context-param unset-web-env-entry update-connector-security-map update-connector-work-security-map update-file-user update-node-config update-node-dcom update-node-ssh update-password-alias uptime validate-dcom validate-multicast verify-domain-xml version )
+        COMPPOSIB=( ${COMPPOSIB[@]} add-library add-resources apply-http-lb-changes attach backup-domain change-admin-password change-master-password collect-log-files configure-lb-weight configure-ldap-for-admin configure-managed-jobs copy-config create-admin-object create-application-ref create-audit-module create-auth-realm create-cluster create-connector-connection-pool create-connector-resource create-connector-security-map create-connector-work-security-map create-custom-resource create-domain create-file-user create-http create-http-health-checker create-http-lb create-http-lb-config create-http-lb-ref create-http-listener create-http-redirect create-iiop-listener create-instance create-jacc-provider create-javamail-resource create-jdbc-connection-pool create-jdbc-resource create-jndi-resource create-jvm-options create-lifecycle-module create-local-instance create-message-security-provider create-module-config create-network-listener create-node-config create-node-dcom create-node-ssh create-password-alias create-profiler create-protocol create-protocol-filter create-protocol-finder create-resource-adapter-config create-resource-ref create-service create-ssl create-system-properties create-threadpool create-transport create-virtual-server delete-admin-object delete-application-ref delete-audit-module delete-auth-realm delete-cluster delete-config delete-connector-connection-pool delete-connector-resource delete-connector-security-map delete-connector-work-security-map delete-custom-resource delete-domain delete-file-user delete-http delete-http-health-checker delete-http-lb delete-http-lb-config delete-http-lb-ref delete-http-listener delete-http-redirect delete-iiop-listener delete-instance delete-jacc-provider delete-javamail-resource delete-jdbc-connection-pool delete-jdbc-resource delete-jndi-resource delete-jvm-options delete-lifecycle-module delete-local-instance delete-log-levels delete-message-security-provider delete-module-config delete-network-listener delete-node-config delete-node-dcom delete-node-ssh delete-password-alias delete-profiler delete-protocol delete-protocol-filter delete-protocol-finder delete-resource-adapter-config delete-resource-ref delete-ssl delete-system-property delete-threadpool delete-transport delete-virtual-server deploy deploydir disable disable-http-lb-application disable-http-lb-server disable-monitoring disable-secure-admin disable-secure-admin-internal-user disable-secure-admin-principal enable enable-http-lb-application enable-http-lb-server enable-monitoring enable-secure-admin enable-secure-admin-internal-user enable-secure-admin-principal export export-http-lb-config export-sync-bundle flush-connection-pool freeze-transaction-service generate-domain-schema generate-jvm-report get get-active-module-config get-client-stubs get-health help import-sync-bundle install-node install-node-dcom install-node-ssh list list-admin-objects list-application-refs list-applications list-audit-modules list-auth-realms list-backups list-clusters list-commands list-components list-configs list-connector-connection-pools list-connector-resources list-connector-security-maps list-connector-work-security-maps list-containers list-custom-resources list-domains list-file-groups list-file-users list-http-lb-configs list-http-lbs list-http-listeners list-iiop-listeners list-instances list-jacc-providers list-javamail-resources list-jdbc-connection-pools list-jdbc-resources list-jndi-entries list-jndi-resources list-jobs list-jvm-options list-libraries list-lifecycle-modules list-log-attributes list-loggers list-log-levels list-message-security-providers list-modules list-network-listeners list-nodes list-nodes-config list-nodes-dcom list-nodes-ssh list-password-aliases list-persistence-types list-protocol-filters list-protocol-finders list-protocols list-resource-adapter-configs list-resource-refs list-secure-admin-internal-users list-secure-admin-principals list-sub-components list-supported-cipher-suites list-system-properties list-threadpools list-timers list-transports list-virtual-servers list-web-context-param list-web-env-entry login migrate-timers monitor multimode osgi osgi-shell ping-connection-pool ping-node-dcom ping-node-ssh recover-transactions redeploy remove-library restart-domain restart-instance restart-local-instance restore-domain rollback-transaction rotate-log set set-log-attributes set-log-file-format set-log-levels setup-local-dcom setup-ssh set-web-context-param set-web-env-entry show-component-status start-cluster start-database start-domain start-instance start-local-instance stop-cluster stop-database stop-domain stop-instance stop-local-instance undeploy unfreeze-transaction-service uninstall-node uninstall-node-dcom uninstall-node-ssh unset unset-web-context-param unset-web-env-entry update-connector-security-map update-connector-work-security-map update-file-user update-node-config update-node-dcom update-node-ssh update-password-alias uptime validate-dcom validate-multicast verify-domain-xml version )
     fi
     COMPREPLY=( $(compgen -W "${COMPPOSIB[*]}" -- ${cur}) )
     COMPPOSIB=() #Clean it
